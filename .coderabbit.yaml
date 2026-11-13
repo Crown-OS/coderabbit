@@ -1,0 +1,181 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+# Central CodeRabbit configuration for every Crown-OS repository.
+# A repository that adds its own .coderabbit.yaml must set `inheritance: true`,
+# otherwise this file is ignored for that repository.
+language: en-US
+tone_instructions: >-
+  Be direct and specific. Many contributors are new to CrownOS: explain why a
+  change is needed and link the CONTRIBUTING.md rule it relates to.
+
+reviews:
+  profile: chill
+  poem: false
+  in_progress_fortune: false
+  high_level_summary: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_reviewers: true
+  auto_assign_reviewers: true
+  request_changes_workflow: false
+  enable_prompt_for_ai_agents: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    base_branches: ["main"]
+    ignore_title_keywords: ["WIP", "[skip review]"]
+    ignore_usernames: ["dependabot[bot]", "renovate[bot]"]
+
+  slop_detection:
+    enabled: true
+    label: slop
+
+  suggested_labels: true
+  auto_apply_labels: true
+  labeling_instructions:
+    - label: bug
+      instructions: Fixes incorrect behaviour, a crash or a regression.
+    - label: enhancement
+      instructions: Adds a feature or user-visible capability.
+    - label: performance
+      instructions: Primarily reduces CPU, GPU, memory or allocation cost.
+    - label: breaking-change
+      instructions: >-
+        Changes a public Rust API, a Wayland/IPC protocol, a config file format,
+        a D-Bus interface or a CLI flag in a way existing callers or users notice.
+    - label: documentation
+      instructions: Only changes docs, README, comments or examples.
+    - label: ci
+      instructions: Changes .github/workflows, packaging or build scripts.
+    - label: dependencies
+      instructions: Only bumps or changes dependencies in Cargo.toml / Cargo.lock / package.json.
+
+  path_filters:
+    - "!**/target/**"
+    - "!**/Cargo.lock"
+    - "!**/out/**"
+    - "!**/node_modules/**"
+    - "!**/bun.lock"
+    - "!**/*.gz"
+    - "!**/*.pkg.tar.zst"
+
+  path_instructions:
+    - path: "**/*.rs"
+      instructions: |
+        Enforce CrownOS Rust conventions (see CONTRIBUTING.md):
+        - No unwrap/expect outside tests and examples; propagate with `?`.
+        - Library crates use thiserror error enums; binaries use anyhow with `.context()`.
+        - Prefer borrowing over cloning; flag clones that exist only to satisfy the borrow checker.
+        - Parameters: &str or impl Into<String> instead of String; enums instead of bool flags; Cow<str> when ownership is conditional.
+        - Named constants instead of magic numbers; early returns instead of deep nesting.
+        - Flag comments that explain what code does; ask for clearer names or structure instead.
+        - Shared helpers belong in src/util/<name>.rs; flag files that mix unrelated types and functions.
+        - Prefer Vec::with_capacity for known sizes, iterators over manual push loops, and GPU paths over CPU fallbacks.
+        - Never block inside async code; use spawn_blocking for CPU-heavy work.
+    - path: "**/Cargo.toml"
+      instructions: |
+        Path dependencies on sibling repos (`../crownui`, `../crownos-config` ...) are resolved from
+        their `main` branch in CI. If this PR needs an unmerged change in a sibling repo, ask the
+        author to link the companion PR so maintainers can merge in dependency order.
+        New crates.io dependencies must be justified; flag heavy or duplicate dependencies.
+    - path: "**/.github/workflows/**"
+      instructions: |
+        Never use pull_request_target with a checkout of PR code. Keep `permissions` least-privilege
+        and never expose secrets to workflows triggered by forks.
+    - path: "**/*.{ts,tsx}"
+      instructions: Follow the repository's biome configuration and Next.js app-router conventions.
+
+  pre_merge_checks:
+    title:
+      mode: warning
+      requirements: |
+        Conventional Commits: `<type>(<optional scope>)<optional !>: <description>`.
+        type is one of feat, fix, perf, refactor, docs, test, build, ci, chore, revert.
+        description is imperative mood, lowercase start, no trailing period, whole title at most 72 characters.
+        Use `!` when the change is breaking.
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+    docstrings:
+      mode: "off"
+
+  tools:
+    clippy:
+      enabled: true
+    shellcheck:
+      enabled: true
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    gitleaks:
+      enabled: true
+    osvScanner:
+      enabled: true
+    biome:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: false
+    languagetool:
+      enabled: false
+
+chat:
+  auto_reply: true
+  allow_non_org_members: true
+
+issue_enrichment:
+  auto_enrich:
+    enabled: true
+  planning:
+    enabled: true
+    auto_planning:
+      enabled: true
+      labels: ["good first issue", "help wanted"]
+  labeling:
+    auto_apply_labels: true
+    labeling_instructions:
+      - label: bug
+        instructions: Reports incorrect behaviour, a crash or a regression.
+      - label: enhancement
+        instructions: Requests a new feature or capability.
+      - label: documentation
+        instructions: Asks for missing or wrong documentation.
+      - label: question
+        instructions: Asks how something works rather than reporting a defect.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+  learnings:
+    scope: global
+  issues:
+    scope: global
+  pull_requests:
+    scope: global
+  linked_repositories:
+    - repository: Crown-OS/crownui
+      instructions: UI toolkit used by almost every app; API changes here break downstream apps.
+    - repository: Crown-OS/crownos-ipc
+      instructions: IPC types shared between shell components and daemons.
+    - repository: Crown-OS/crownos-config
+      instructions: Shared config loading and schema used by every component.
+    - repository: Crown-OS/crownos-protocols
+      instructions: Wayland protocol definitions shared by crownpositor and clients.
+    - repository: Crown-OS/crownos-plugins
+      instructions: Plugin daemon and types consumed by shell components.
+    - repository: Crown-OS/crownuikit
+      instructions: Higher-level widgets built on crownui.
+    - repository: Crown-OS/crownshell
+      instructions: Shell library consumed by crownotify, crowndictator and others.
+    - repository: Crown-OS/crownpositor
+      instructions: The compositor; protocol and IPC changes must stay compatible with it.
+    - repository: Crown-OS/vendor
+      instructions: Vendored third-party crates; never review style here.
